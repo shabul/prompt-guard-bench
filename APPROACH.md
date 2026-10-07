@@ -132,27 +132,27 @@ The ridge solution is computed in closed form. It is a small supervised model tr
 
 The resulting `score(x)` is called `probability_injection` in the evaluation output. It is a model score used for ranking and thresholding. It should not be interpreted as a perfectly calibrated real-world probability until calibration has been checked on a representative validation set. The production integration guidance is in [`SHIPMENT_GUIDE.md`](SHIPMENT_GUIDE.md).
 
-## 4. Where AnyJev fits
+## 4. Programmable judgment layer
 
-The design follows the AnyJev-style idea of separating a large model's semantic representation from a compact, programmable judgment layer. In that pattern, the model provides the representation and a downstream judgment component turns it into a typed decision or confidence score.
+The design separates a large model's semantic representation from a compact, programmable judgment layer. Gemma provides the representation, and a downstream component turns it into a binary security judgment and confidence score.
 
-In this experiment, the AnyJev connection is specifically an **AnyJev-inspired L2-style approach**:
+In this experiment:
 
 - Gemma supplies the semantic representation;
 - the downstream head supplies the binary judgment;
 - the output is a score that can be composed with application policy.
 
-We did not fine-tune Gemma, run reinforcement learning, run RLCD, or run GRPO. We also did not use an official AnyJev L2 training API in this branch. The installed AnyJev package did not expose the documented `fit_head`, `calibrate`, or `level="L2"` interfaces, so we implemented the equivalent experiment explicitly with a frozen final hidden state and a closed-form ridge head.
+We did not fine-tune Gemma, run reinforcement learning, run RLCD, or run GRPO. We implemented the judgment layer explicitly with a frozen final hidden state and a closed-form ridge head.
 
 Therefore, the most precise description is:
 
-> A frozen Gemma 3 1B encoder with an AnyJev-inspired L2-style programmable judgment layer implemented as a supervised ridge classifier.
+> A frozen Gemma 3 1B encoder with a programmable security judgment layer implemented as a supervised ridge classifier.
 
-### AnyJev-style separation of concerns
+### Separation of concerns
 
 ```mermaid
 flowchart LR
-    A[Gemma semantic representation] --> B[AnyJev-inspired judgment layer]
+    A[Gemma semantic representation] --> B[Programmable judgment layer]
     B --> C[Typed security signal]
     C --> D[Application policy]
     D --> E[Allow / review / block]
@@ -161,9 +161,7 @@ flowchart LR
     G[Tool sandboxing] --> D
 ```
 
-The AnyJev-inspired part is the explicit separation between representation and judgment. The concrete judgment layer in this repository is the ridge head shown in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L31-L42), not an official AnyJev L2 implementation.
-
-Calling this “AnyJev” describes the design inspiration and judgment structure; it does not claim that the current code is an official AnyJev model or that AnyJev trained Gemma's weights.
+The separation between representation and judgment is implemented by the ridge head shown in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L31-L42).
 
 ## 5. From score to application output
 
@@ -187,7 +185,7 @@ This is:
 - linear probing with a ridge head;
 - supervised binary classification;
 - a local semantic screening component;
-- an AnyJev-inspired programmable judgment layer.
+- a programmable judgment layer.
 
 This is not:
 
@@ -218,4 +216,4 @@ Any change to the model, prompt template, truncation length, calibration data, o
 
 We use Gemma 3 1B IT as a frozen semantic encoder. We convert its final hidden state into a compact representation, fit a ridge head on labeled calibration examples, and turn the head output into an injection score. The score is then consumed by an application policy.
 
-AnyJev is relevant here as the conceptual model for a programmable L2-style judgment layer. The concrete implementation in this repository is our explicit frozen-encoder-plus-ridge implementation, not official AnyJev training and not fine-tuning of Gemma.
+The concrete implementation in this repository is an explicit frozen-encoder-plus-ridge design, not fine-tuning of Gemma.

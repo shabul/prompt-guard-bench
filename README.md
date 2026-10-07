@@ -4,7 +4,7 @@ Frozen Gemma 3 1B IT hidden-state classifier evaluated on prompt-injection data.
 
 For production handoff, prerequisites, deployment guidance, API design, threshold policy, and validation requirements, see [SHIPMENT_GUIDE.md](SHIPMENT_GUIDE.md).
 
-For the model-to-decision design and the precise role of AnyJev in this experiment, see [APPROACH.md](APPROACH.md).
+For the model-to-decision design, see [APPROACH.md](APPROACH.md).
 
 ## Run
 
