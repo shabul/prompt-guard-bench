@@ -26,6 +26,50 @@ Sigmoid injection score
 Policy decision: allow / review / block
 ```
 
+### Visual pipeline
+
+```mermaid
+flowchart LR
+    A[Gemma 3 1B IT weights] --> B[Tokenizer + chat template]
+    B --> C[Forward pass]
+    C --> D[Final hidden-state vector h x]
+    D --> E[Normalize with calibration mean and scale]
+    E --> F[Ridge judgment head]
+    F --> G[Sigmoid score]
+    G --> H{Policy threshold}
+    H -->|low| I[Allow]
+    H -->|middle| J[Review or sanitize]
+    H -->|high| K[Block or isolate]
+```
+
+The diagram separates the semantic model from the decision layer: Gemma produces features, while the small head converts those features into a programmable security judgment.
+
+### Training and inference are separate
+
+```mermaid
+flowchart TB
+    subgraph TRAIN[One-time calibration / training]
+        T1[Labeled calibration prompts] --> T2[Gemma frozen]
+        T2 --> T3[Hidden-state vectors]
+        T3 --> T4[Mean + standard deviation]
+        T3 --> T5[Closed-form ridge fit]
+        T4 --> ART[Versioned artifacts]
+        T5 --> ART
+    end
+
+    subgraph RUN[Per-request inference]
+        R1[New prompt] --> R2[Same tokenizer + chat template]
+        R2 --> R3[Gemma frozen]
+        R3 --> R4[Hidden-state vector]
+        ART --> R5[Normalize + apply ridge head]
+        R4 --> R5
+        R5 --> R6[Injection score]
+        R6 --> R7[Application policy]
+    end
+
+    TEST[Test and OOB prompts] -. evaluate only .-> R3
+```
+
 The executable implementation is mapped here:
 
 - [Dataset preparation](prepare_gemma1b_dataset.py#L8-L28) downloads the deepset data, filters English rows, and creates the disjoint splits.
@@ -47,6 +91,19 @@ Formally, for text `x`, Gemma produces a vector:
 ```text
 h(x) ∈ R^d
 ```
+
+An actual Gemma vector has many dimensions. The following is a small illustrative example, not the complete model output:
+
+```mermaid
+flowchart LR
+    A["h(x) = [0.20, -1.10, 0.70, 2.00, ...]"] --> B["subtract mean / divide scale"]
+    B --> C["h_norm(x) = [0.10, -0.80, 0.55, 1.40, ...]"]
+    C --> D["ridge: z = w · h_norm + b = 1.25"]
+    D --> E["sigmoid(1.25) = 0.78"]
+    E --> F["threshold 0.60 → review/block"]
+```
+
+In code, the corresponding operations are visible in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L32-L42): the vector is standardized, a bias feature is appended, the ridge weights are applied, and the sigmoid produces the score.
 
 This vector contains semantic features learned by Gemma, while the classifier trained in this experiment learns how those features correlate with prompt-injection labels.
 
@@ -90,6 +147,21 @@ We did not fine-tune Gemma, run reinforcement learning, run RLCD, or run GRPO. W
 Therefore, the most precise description is:
 
 > A frozen Gemma 3 1B encoder with an AnyJev-inspired L2-style programmable judgment layer implemented as a supervised ridge classifier.
+
+### AnyJev-style separation of concerns
+
+```mermaid
+flowchart LR
+    A[Gemma semantic representation] --> B[AnyJev-inspired judgment layer]
+    B --> C[Typed security signal]
+    C --> D[Application policy]
+    D --> E[Allow / review / block]
+
+    F[Authorization checks] --> D
+    G[Tool sandboxing] --> D
+```
+
+The AnyJev-inspired part is the explicit separation between representation and judgment. The concrete judgment layer in this repository is the ridge head shown in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L31-L42), not an official AnyJev L2 implementation.
 
 Calling this “AnyJev” describes the design inspiration and judgment structure; it does not claim that the current code is an official AnyJev model or that AnyJev trained Gemma's weights.
 
