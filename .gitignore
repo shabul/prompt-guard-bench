@@ -4,5 +4,6 @@ __pycache__/
 .DS_Store
 *.log
 evaluation_results.json
+anyjev_evaluation_results.json
 data/
 .cache/
