@@ -32,7 +32,7 @@ def embed_batch(texts):
 
 def collect(dataset):
     rows = []
-    batch_size = 64
+    batch_size = 8
     for start in range(0, len(dataset), batch_size):
         batch = dataset.select(range(start, min(start + batch_size, len(dataset))))
         vectors, elapsed = embed_batch(batch['text'])
