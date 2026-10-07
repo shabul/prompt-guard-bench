@@ -24,3 +24,19 @@ Open http://127.0.0.1:3000. To use a different local model path, set `CLEF_MODEL
 ```
 
 This creates a deterministic 80/20 split with seed 42 and writes precision, recall, F1, accuracy, confusion matrix, and per-example latency to `evaluation_results.json`.
+
+The recommended macOS path is the 4-bit MLX server. Convert the downloaded model once with:
+
+```bash
+.venv/bin/mlx_lm.convert --hf-path /Users/Shabul/model-weights/Cloudflare/clef-flash --mlx-path /Users/Shabul/model-weights/Cloudflare/clef-flash-mlx-4bit -q --q-bits 4 --q-group-size 64 --trust-remote-code
+```
+
+## Model storage
+
+Local model weights are kept outside the repository under:
+
+```text
+/Users/Shabul/model-weights/<company>/<exact-model-name>/
+```
+
+For example, clef-flash is stored at `/Users/Shabul/model-weights/Cloudflare/clef-flash`.

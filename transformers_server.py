@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 import torch
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
-MODEL_ID = os.getenv('CLEF_MODEL', 'Cloudflare/clef-flash')
+MODEL_ID = os.getenv('CLEF_MODEL', '/Users/Shabul/model-weights/Cloudflare/clef-flash' if Path('/Users/Shabul/model-weights/Cloudflare/clef-flash').exists() else 'Cloudflare/clef-flash')
 DEVICE = 'mps' if torch.backends.mps.is_available() else 'cpu'
 app = FastAPI()
 ROOT = Path(__file__).parent
@@ -21,6 +21,10 @@ print('Model ready on http://127.0.0.1:3000', flush=True)
 
 @app.get('/')
 async def index(): return FileResponse(ROOT / 'index.html')
+@app.get('/styles.css')
+async def styles(): return FileResponse(ROOT / 'styles.css', media_type='text/css')
+@app.get('/app.js')
+async def script(): return FileResponse(ROOT / 'app.js', media_type='application/javascript')
 
 @app.get('/health')
 async def health(): return {'ok': True, 'model': MODEL_ID, 'device': DEVICE}
@@ -42,7 +46,8 @@ async def chat(request: Request):
     inputs = processor.apply_chat_template(normalized, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors='pt')
     inputs = {k: v.to(DEVICE) if hasattr(v, 'to') else v for k, v in inputs.items()}
     with torch.inference_mode():
-        out = model.generate(**inputs, max_new_tokens=int(payload.get('max_tokens', 512)), temperature=float(payload.get('temperature', .7)), do_sample=True)
+        temperature = float(payload.get('temperature', .7))
+        out = model.generate(**inputs, max_new_tokens=int(payload.get('max_tokens', 512)), temperature=max(temperature, 0.01), do_sample=temperature > 0)
     text = processor.decode(out[0][inputs['input_ids'].shape[-1]:], skip_special_tokens=True).strip()
     return {'id': 'clef-local', 'object': 'chat.completion', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': text}, 'finish_reason': 'stop'}]}
 
