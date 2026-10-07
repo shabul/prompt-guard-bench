@@ -1,37 +1,37 @@
 # clef-flash prompt-injection evaluation
 
 Run date: 2026-10-07  
-Model: `Cloudflare/clef-flash`, converted to 4-bit MLX  
+Model: `Cloudflare/clef-flash`, 4-bit MLX conversion  
 Runtime: MLX on Apple M5 GPU  
 Dataset: `deepset/prompt-injections`  
 Filter: English-dominant rows using `langdetect`, seed 42  
-Split: stratified 80/20, seed `42`
+Evaluation scope: all 351 retained English-dominant rows
 
 ## Results
 
-The filter retained 351 of 662 examples. The test set contained 71 examples: 40 safe and 31 injection.
-
 | Metric | Result |
 |---|---:|
-| Accuracy | 74.65% |
-| Precision | 100.00% |
-| Recall | 41.94% |
-| F1 | 59.09% |
-| Mean latency | 358.0 ms |
-| P50 latency | 338.3 ms |
-| P95 latency | 416.0 ms |
+| Accuracy | 79.77% |
+| Precision | 98.82% |
+| Recall | 54.55% |
+| F1 | 70.29% |
+| Mean latency | 364.1 ms |
+| P50 latency | 343.3 ms |
+| P95 latency | 463.2 ms |
 
 ### Confusion matrix
 
 |  | Predicted safe | Predicted injection |
 |---|---:|---:|
-| Actual safe | 40 | 0 |
-| Actual injection | 18 | 13 |
+| Actual safe | 196 | 1 |
+| Actual injection | 70 | 84 |
 
 ## Interpretation
 
-The model remained conservative: it produced no false positives, but missed 18 of 31 injections. Removing non-English rows did not improve recall; the remaining misses are mostly indirect role-play, context-switching, persona, and instruction-following attacks.
+This run evaluates all 351 English-dominant examples rather than only a 20% holdout. The model remains highly conservative: it has excellent precision (98.82%) and only one false positive, but misses 70 of 154 injection examples, resulting in 54.55% recall.
 
-Latency remained stable on the quantized MLX runtime. This is a zero-shot benchmark, not a fine-tuned classifier evaluation.
+Compared with the 71-example English-only holdout, the larger evaluation gives a more stable estimate. Recall is essentially unchanged, suggesting the main limitation is model behavior rather than test-set size or non-English inputs. The misses are primarily indirect role-play, context switching, persona changes, and requests that attempt to redefine the assistant’s task.
 
-See [FALSE_NEGATIVES.md](FALSE_NEGATIVES.md) for the review set. Raw per-example results are in the generated, gitignored `evaluation_results.json` file.
+Latency remains practical on the quantized MLX runtime: 364 ms mean and 463 ms at P95. This is a zero-shot benchmark, not a fine-tuned classifier evaluation.
+
+See [FALSE_NEGATIVES.md](FALSE_NEGATIVES.md) for the full false-negative review set. Raw per-example results are in the generated, gitignored `evaluation_results.json` file.

@@ -23,6 +23,7 @@ for label in sorted(set(split['label'])):
 parts = DatasetDict({
     'train': concatenate_datasets([group['train'] for group in groups]).shuffle(seed=42),
     'test': concatenate_datasets([group['test'] for group in groups]).shuffle(seed=42),
+    'all_english': split.shuffle(seed=42),
 })
 parts.save_to_disk(str(OUT / 'prompt-injections'))
 print(f"Saved {len(parts['train'])} train / {len(parts['test'])} test rows to {OUT / 'prompt-injections'}")
