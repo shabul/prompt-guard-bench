@@ -1,0 +1,42 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "prompt-injections",
+  "dataset_size": 87785,
+  "description": "",
+  "download_size": 51215,
+  "features": {
+    "text": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "label": {
+      "dtype": "int64",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": "cc-by-4.0",
+  "size_in_bytes": 139000,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 71789,
+      "num_examples": 546,
+      "dataset_name": "prompt-injections"
+    },
+    "test": {
+      "name": "test",
+      "num_bytes": 15996,
+      "num_examples": 116,
+      "dataset_name": "prompt-injections"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
