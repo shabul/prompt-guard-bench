@@ -26,6 +26,16 @@ Sigmoid injection score
 Policy decision: allow / review / block
 ```
 
+The executable implementation is mapped here:
+
+- [Dataset preparation](prepare_gemma1b_dataset.py#L8-L28) downloads the deepset data, filters English rows, and creates the disjoint splits.
+- [Model and tokenizer loading](evaluate_gemma1b.py#L8-L14) loads the local Gemma 3 1B IT checkpoint and selects MPS or CPU.
+- [Prompt rendering and hidden-state extraction](evaluate_gemma1b.py#L16-L22) applies the chat template and returns the final hidden-state vector.
+- [Ridge-head fitting](evaluate_gemma1b.py#L31-L36) standardizes calibration vectors and solves the closed-form ridge system.
+- [Scoring](evaluate_gemma1b.py#L38-L42) applies the head and sigmoid to produce the injection score.
+- [Metrics and benchmark output](evaluate_gemma1b.py#L43-L55) calculates threshold metrics and writes the evaluation summary.
+- [Giskard evaluation](evaluate_giskard.py#L12-L42) reuses the same calibration procedure and measures positive-only attack recall and latency.
+
 ## 1. Starting with Gemma 3 1B IT
 
 We use the local `google/gemma-3-1b-it` checkpoint. The tokenizer and model are loaded once, normally onto Apple Silicon MPS on the development Mac. The model weights are not changed during evaluation or inference.
@@ -48,13 +58,13 @@ The source dataset is `deepset/prompt-injections`. We filter for English rows us
 - 100 test examples: 56 safe and 44 injection;
 - 101 OOB examples: 57 safe and 44 injection.
 
-The calibration split is used only to fit the lightweight judgment head and its normalization statistics. The test and OOB splits are not used during fitting.
+The [calibration split](data/gemma1b-prompt-injections/calibration/) is used only to fit the lightweight judgment head and its normalization statistics. The [test split](data/gemma1b-prompt-injections/test/) and [OOB split](data/gemma1b-prompt-injections/oob/) are not used during fitting.
 
 For the calibration vectors, we compute a per-dimension mean and standard deviation. Each hidden-state vector is standardized using those saved values. This prevents large-scale dimensions from dominating the linear head.
 
 ## 3. The learned judgment head
 
-After normalization, we append a bias feature and fit a ridge-regression head against the binary labels. In simplified form:
+After normalization, we append a bias feature and fit a ridge-regression head against the binary labels. The implementation is in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L31-L42). In simplified form:
 
 ```text
 z(x) = w · normalize(h(x)) + b
@@ -63,7 +73,7 @@ score(x) = sigmoid(z(x))
 
 The ridge solution is computed in closed form. It is a small supervised model trained on top of Gemma's representations; Gemma itself remains frozen.
 
-The resulting `score(x)` is called `probability_injection` in the evaluation output. It is a model score used for ranking and thresholding. It should not be interpreted as a perfectly calibrated real-world probability until calibration has been checked on a representative validation set.
+The resulting `score(x)` is called `probability_injection` in the evaluation output. It is a model score used for ranking and thresholding. It should not be interpreted as a perfectly calibrated real-world probability until calibration has been checked on a representative validation set. The production integration guidance is in [`SHIPMENT_GUIDE.md`](SHIPMENT_GUIDE.md).
 
 ## 4. Where AnyJev fits
 
