@@ -6,5 +6,6 @@ __pycache__/
 evaluation_results.json
 anyjev_evaluation_results.json
 anyjev_calibrated_results.json
+l2_surrogate_results.json
 data/
 .cache/
