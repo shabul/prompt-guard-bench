@@ -1,11 +1,11 @@
 """AnyJev-style L2 surrogate: frozen Gemma hidden states + closed-form ridge head."""
-import hashlib, json, math, time
+import hashlib, json, math, os, time
 from pathlib import Path
 import torch
 from datasets import load_from_disk
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL='/Users/Shabul/model-weights/Google/gemma-3-270m-it'; DEVICE='mps' if torch.backends.mps.is_available() else 'cpu'
+MODEL=os.getenv('L2_MODEL','/Users/Shabul/model-weights/Google/gemma-3-270m-it'); DEVICE='mps' if torch.backends.mps.is_available() else 'cpu'
 sets=load_from_disk('data/prompt-injections'); calibration, test, oob = sets['calibration'], sets['test'], sets['oob']
 assert len(calibration)==150 and len(calibration)+len(test)+len(oob)==len(sets['all_english'])
 tokenizer=AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True)
@@ -45,4 +45,4 @@ def metrics(rows):
 test_scored=score(test_rows); oob_scored=score(oob_rows)
 def public(rows): return [{k:v for k,v in row.items() if k != 'x'} for row in rows]
 summary={'model':MODEL,'method':'AnyJev-style L2 surrogate: frozen hidden state + closed-form ridge head','device':DEVICE,'dtype':'float32','ridge':ridge,'threshold':.5,'sizes':{'calibration':len(cal),'test':len(test_rows),'oob':len(oob_rows)},'calibration_labels':{'safe':sum(r['label']==0 for r in cal),'injection':sum(r['label']==1 for r in cal)},'test':metrics(test_scored),'oob':metrics(oob_scored),'dataset_sha256':hashlib.sha256(''.join(row['text'] for dataset in (calibration,test,oob) for row in dataset).encode()).hexdigest()}
-Path('l2_surrogate_results.json').write_text(json.dumps({'summary':summary,'test_rows':public(test_scored),'oob_rows':public(oob_scored)},indent=2)); print(json.dumps(summary,indent=2))
+Path(os.getenv('L2_RESULTS','l2_surrogate_results.json')).write_text(json.dumps({'summary':summary,'test_rows':public(test_scored),'oob_rows':public(oob_scored)},indent=2)); print(json.dumps(summary,indent=2))
