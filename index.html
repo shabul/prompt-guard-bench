@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>clef / local playground</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="topbar">
+      <a class="brand" href="#"><span class="mark">c</span><span>clef</span><small>LOCAL PLAYGROUND</small></a>
+      <div class="server-pill"><span class="dot" id="statusDot"></span><span id="statusText">checking local server</span><span class="mono">:8000</span></div>
+      <a class="repo-link" href="https://huggingface.co/Cloudflare/clef" target="_blank" rel="noreferrer">model card ↗</a>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="eyebrow"><span class="line"></span> MULTIMODAL · STRUCTURED OUTPUT</div>
+        <h1>Talk to <em>clef.</em></h1>
+        <p>Experiment with Cloudflare’s open multimodal model on your own machine. Ask a question, attach an image, and inspect the response as it arrives.</p>
+      </section>
+
+      <section class="workspace">
+        <div class="conversation-panel panel">
+          <div class="panel-head"><div><span class="kicker">SESSION</span><h2>Untitled conversation</h2></div><button class="ghost" id="clearBtn">clear <span>⌘K</span></button></div>
+          <div class="messages" id="messages">
+            <div class="welcome"><div class="welcome-orb">✦</div><h3>Ready when you are.</h3><p>Try asking clef to analyze an image, extract structured data, or explain an idea in plain language.</p><div class="suggestions"><button data-prompt="What can you do?">What can you do?</button><button data-prompt="Give me three creative ideas for a rainy afternoon.">Creative ideas</button><button data-prompt="Explain multimodal models simply.">Explain something</button></div></div>
+          </div>
+          <form class="composer" id="chatForm">
+            <div class="attachment" id="attachmentPreview"></div>
+            <textarea id="prompt" rows="2" placeholder="Message clef…" aria-label="Message clef"></textarea>
+            <div class="composer-foot"><label class="attach"><input type="file" id="imageInput" accept="image/*" /> <span>＋</span> attach image</label><div class="composer-actions"><span class="hint">⌘ ↵ to send</span><button class="send" type="submit" id="sendBtn">send <span>↗</span></button></div></div>
+          </form>
+        </div>
+
+        <aside class="side-panel">
+          <div class="panel settings-panel"><div class="panel-head compact"><div><span class="kicker">RUNTIME</span><h2>Local configuration</h2></div><span class="badge">vLLM</span></div>
+            <label class="field"><span>MODEL</span><input value="Cloudflare/clef" id="modelName" /></label>
+            <div class="field-row"><label class="field"><span>TEMPERATURE <b id="tempValue">0.7</b></span><input type="range" min="0" max="1.5" step="0.1" value="0.7" id="temperature" /></label><label class="field"><span>MAX TOKENS <b id="tokensValue">512</b></span><input type="range" min="64" max="2048" step="64" value="512" id="maxTokens" /></label></div>
+            <div class="endpoint"><span class="dot"></span><div><strong>OpenAI-compatible endpoint</strong><small>http://localhost:8000/v1</small></div></div>
+          </div>
+          <div class="panel tips"><span class="kicker">QUICK START</span><ol><li><span>01</span> Install <code>vllm</code> in your Python environment.</li><li><span>02</span> Run <code>./start.sh</code> to launch the model + UI.</li><li><span>03</span> Send a prompt here and watch the response stream in.</li></ol><a href="https://huggingface.co/Cloudflare/clef#vllm" target="_blank" rel="noreferrer">read model instructions ↗</a></div>
+          <div class="model-note"><span class="quote">“</span><p>Built for curious minds and local-first tinkering.</p><span class="mono">Cloudflare / clef</span></div>
+        </aside>
+      </section>
+    </main>
+    <footer><span>LOCAL ONLY · YOUR PROMPTS STAY ON YOUR MACHINE</span><span class="mono">clef playground / 01</span></footer>
+    <script src="app.js"></script>
+  </body>
+</html>
