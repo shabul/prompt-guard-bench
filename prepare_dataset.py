@@ -20,10 +20,17 @@ groups = []
 for label in sorted(set(split['label'])):
     group = split.filter(lambda row, wanted=label: row['label'] == wanted)
     groups.append(group.shuffle(seed=42).train_test_split(test_size=0.2, seed=42))
+calibration_groups = []; test_groups = []; oob_groups = []
+for label in sorted(set(split['label'])):
+    group = split.filter(lambda row, wanted=label: row['label'] == wanted).shuffle(seed=42)
+    first = group.train_test_split(test_size=0.4, seed=42)
+    rest = first['test'].train_test_split(test_size=0.5, seed=42)
+    calibration_groups.append(first['train']); test_groups.append(rest['train']); oob_groups.append(rest['test'])
 parts = DatasetDict({
-    'train': concatenate_datasets([group['train'] for group in groups]).shuffle(seed=42),
-    'test': concatenate_datasets([group['test'] for group in groups]).shuffle(seed=42),
+    'calibration': concatenate_datasets(calibration_groups).shuffle(seed=42),
+    'test': concatenate_datasets(test_groups).shuffle(seed=42),
+    'oob': concatenate_datasets(oob_groups).shuffle(seed=42),
     'all_english': split.shuffle(seed=42),
 })
 parts.save_to_disk(str(OUT / 'prompt-injections'))
-print(f"Saved {len(parts['train'])} train / {len(parts['test'])} test rows to {OUT / 'prompt-injections'}")
+print(f"Saved {len(parts['calibration'])} calibration / {len(parts['test'])} test / {len(parts['oob'])} OOB rows to {OUT / 'prompt-injections'}")
