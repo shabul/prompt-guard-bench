@@ -2,6 +2,8 @@
 
 Frozen Gemma 3 1B IT hidden-state classifier evaluated on prompt-injection data.
 
+For production handoff, prerequisites, deployment guidance, API design, threshold policy, and validation requirements, see [SHIPMENT_GUIDE.md](SHIPMENT_GUIDE.md).
+
 ## Run
 
 The model weights are expected at `/Users/Shabul/model-weights/Google/gemma-3-1b-it`.
@@ -9,6 +11,12 @@ The model weights are expected at `/Users/Shabul/model-weights/Google/gemma-3-1b
 ```bash
 .venv/bin/python prepare_gemma1b_dataset.py
 .venv/bin/python evaluate_gemma1b.py
+```
+
+Evaluate the external Giskard attack set:
+
+```bash
+.venv/bin/python evaluate_giskard.py
 ```
 
 ## Benchmark prompt-injection detection
