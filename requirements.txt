@@ -6,3 +6,4 @@ torchvision
 mlx
 mlx-lm
 langdetect
+anyjev[hf]

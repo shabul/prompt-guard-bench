@@ -40,3 +40,7 @@ Local model weights are kept outside the repository under:
 ```
 
 For example, clef-flash is stored at `/Users/Shabul/model-weights/Cloudflare/clef-flash`.
+
+## AnyJev + Gemma experiment
+
+The `anyjev-gemma-270m-pi` branch contains the audited AnyJev/Gemma 3 270M IT benchmark. AnyJev produces typed `SAFE`/`INJECTION` decisions with probabilities; it does not fine-tune the base model. See [ANYJEV_EVALUATION_REPORT.md](ANYJEV_EVALUATION_REPORT.md).
