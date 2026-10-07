@@ -6,6 +6,8 @@ For production handoff, prerequisites, deployment guidance, API design, threshol
 
 For the model-to-decision design, see [APPROACH.md](APPROACH.md).
 
+The AG News multi-class experiment is documented in [AGNEWS_REPORT.md](AGNEWS_REPORT.md).
+
 ## Run
 
 The model weights are expected at `/Users/Shabul/model-weights/Google/gemma-3-1b-it`.
