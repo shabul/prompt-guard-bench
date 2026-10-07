@@ -6,7 +6,8 @@ from datasets import load_from_disk
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 MODEL = '/Users/Shabul/model-weights/Google/gemma-3-1b-it'
-DATA_PATH = Path('data/ag-news'); CACHE = DATA_PATH / 'embedding-cache-v2'; CACHE.mkdir(parents=True, exist_ok=True)
+ROOT = Path(__file__).resolve().parent
+DATA_PATH = ROOT / 'data/ag-news'; CACHE = DATA_PATH / 'embedding-cache-v2'; CACHE.mkdir(parents=True, exist_ok=True)
 DATA = load_from_disk(str(DATA_PATH)); calibration, test = DATA['calibration'], DATA['test']
 assert len(calibration) == 8000 and len(test) == 7600
 LABELS = ['World', 'Sports', 'Business', 'Science/Technology']; DEVICE = 'mps' if torch.backends.mps.is_available() else 'cpu'; BATCH_SIZE = 8
@@ -57,4 +58,4 @@ def evaluate(lam):
 
 results = [evaluate(lam) for lam in (0.01, 0.1, 1.0, 10.0, 100.0)]; best = max(results, key=lambda item: item['macro']['f1']); latencies = [row['latency_ms'] for row in test_rows]
 summary = {'model': MODEL, 'method': 'frozen final hidden state + tuned four-class closed-form ridge head', 'device': DEVICE, 'dtype': 'float32', 'labels': LABELS, 'calibration_rows': len(calibration), 'calibration_per_class': 2000, 'test_rows': len(test), 'regularization_sweep': results, 'best': best, 'mean_latency_ms': sum(latencies) / len(latencies), 'p95_latency_ms': sorted(latencies)[int(len(latencies) * .95) - 1], 'dataset_sha256': hashlib.sha256(''.join(row['text'] for row in test).encode()).hexdigest()}
-Path('agnews_results.json').write_text(json.dumps({'summary': summary}, indent=2)); print(json.dumps(summary, indent=2))
+(ROOT / 'agnews_results.json').write_text(json.dumps({'summary': summary}, indent=2)); print(json.dumps(summary, indent=2))
