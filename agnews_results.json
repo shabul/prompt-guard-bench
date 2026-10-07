@@ -1,0 +1,78 @@
+{
+  "summary": {
+    "model": "/Users/Shabul/model-weights/Google/gemma-3-1b-it",
+    "method": "frozen final hidden state + four-class closed-form ridge head",
+    "device": "mps",
+    "dtype": "float32",
+    "labels": [
+      "World",
+      "Sports",
+      "Business",
+      "Science/Technology"
+    ],
+    "calibration_rows": 800,
+    "test_rows": 7600,
+    "accuracy": 0.5615789473684211,
+    "macro": {
+      "precision": 0.5823042019748841,
+      "recall": 0.5615789473684211,
+      "f1": 0.5637968263485855
+    },
+    "top3_accuracy": 0.9018421052631579,
+    "per_class": {
+      "World": {
+        "precision": 0.6093052899936265,
+        "recall": 0.5031578947368421,
+        "f1": 0.5511674834246181,
+        "support": 1900
+      },
+      "Sports": {
+        "precision": 0.739501312335958,
+        "recall": 0.5931578947368421,
+        "f1": 0.6582943925233644,
+        "support": 1900
+      },
+      "Business": {
+        "precision": 0.5150311968235961,
+        "recall": 0.47789473684210526,
+        "f1": 0.49576849576849574,
+        "support": 1900
+      },
+      "Science/Technology": {
+        "precision": 0.4653790087463557,
+        "recall": 0.6721052631578948,
+        "f1": 0.5499569336778639,
+        "support": 1900
+      }
+    },
+    "confusion_matrix": [
+      [
+        956,
+        139,
+        312,
+        493
+      ],
+      [
+        193,
+        1127,
+        208,
+        372
+      ],
+      [
+        250,
+        140,
+        908,
+        602
+      ],
+      [
+        170,
+        118,
+        335,
+        1277
+      ]
+    ],
+    "mean_latency_ms": 766.2169380939265,
+    "p95_latency_ms": 3024.963734380435,
+    "dataset_sha256": "9b238d555455829a96c69cf191e159247ee5ac06cc9938bc00fa1a20e1f9b809"
+  }
+}
