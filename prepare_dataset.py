@@ -1,9 +1,19 @@
 """Download deepset/prompt-injections and make a deterministic 80/20 split."""
 from pathlib import Path
 from datasets import load_dataset, concatenate_datasets, DatasetDict
+from langdetect import detect, DetectorFactory
+from langdetect.lang_detect_exception import LangDetectException
+DetectorFactory.seed = 42
 OUT = Path('data'); OUT.mkdir(exist_ok=True)
 dataset = load_dataset('deepset/prompt-injections')
 split = concatenate_datasets(list(dataset.values())) if len(dataset) > 1 else next(iter(dataset.values()))
+# Keep only examples whose dominant language detector result is English.
+before = len(split)
+def is_english(row):
+    try: return detect(row['text']) == 'en'
+    except LangDetectException: return False
+split = split.filter(is_english)
+print(f'English-only filter: {before} -> {len(split)} rows')
 # Stratify manually because Dataset.train_test_split does not support a label column
 # consistently across all datasets versions.
 groups = []

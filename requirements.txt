@@ -5,3 +5,4 @@ datasets>=5.0.0
 torchvision
 mlx
 mlx-lm
+langdetect
