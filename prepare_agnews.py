@@ -6,7 +6,7 @@ OUT = Path('data/ag-news'); OUT.mkdir(parents=True, exist_ok=True)
 source = load_dataset('fancyzhx/ag_news')
 train = source['train']
 labels = sorted(set(train['label']))
-calibration_per_class = 200
+calibration_per_class = 2000
 calibration_parts = []
 remaining_parts = []
 for label in labels:
