@@ -20,7 +20,6 @@ from sklearn.metrics import balanced_accuracy_score, f1_score
 
 from gemma_benchmark import GemmaEncoder, dataset_digest
 from pilot_sms import fit_linear, shape_features, summary_for
-from pilot_sms_embedding import MODEL_ID as EMBEDDING_MODEL_ID, MODEL_REVISION as EMBEDDING_REVISION
 
 
 SOURCE_URL = "https://archive.ics.uci.edu/static/public/911/recipe+reviews+and+user+feedback+dataset.zip"
@@ -130,6 +129,7 @@ def run_method(method, splits, args):
                 return vector.numpy(), details["embedding_latency_ms"]
         else:
             from sentence_transformers import SentenceTransformer
+            from pilot_sms_embedding import MODEL_ID as EMBEDDING_MODEL_ID, MODEL_REVISION as EMBEDDING_REVISION
             encoder = SentenceTransformer(EMBEDDING_MODEL_ID, revision=EMBEDDING_REVISION, device=args.device)
             model_info = {"model_id": EMBEDDING_MODEL_ID, "revision": EMBEDDING_REVISION, "pooling": "sentence_transformers_default"}
             def embed_one(text):

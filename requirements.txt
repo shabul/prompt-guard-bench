@@ -3,3 +3,5 @@ transformers
 datasets
 langdetect
 scikit-learn
+numpy
+pandas
