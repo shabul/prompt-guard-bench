@@ -1,12 +1,12 @@
 # Shipping the Gemma 3 1B prompt-injection detector
 
-This repository contains a local prompt-injection screening component built from `google/gemma-3-1b-it` and a frozen hidden-state ridge classifier. Gemma is used as an encoder; it does not generate the application response. The classifier returns an injection probability that your application converts into an allow, review, or block decision.
+This repository contains an experimental prompt-injection benchmark built from `google/gemma-3-1b-it` and a frozen hidden-state ridge classifier. Gemma is used as an encoder; it does not generate the application response. The classifier returns an uncalibrated score that an application may use after independent validation and policy selection.
 
 ## What is included
 
-- `evaluate_gemma1b.py`: evaluates the detector on the prepared deepset dataset.
+- `evaluate_gemma1b.py`: fits the legacy head, saves it as JSON, and evaluates it on the prepared deepset dataset.
 - `prepare_gemma1b_dataset.py`: downloads the source dataset, keeps English rows, and creates deterministic calibration, test, and OOB splits.
-- `evaluate_giskard.py`: evaluates recall and latency on Giskard's positive-only attack set.
+- `evaluate_giskard.py`: loads the same saved head and evaluates recall and latency on Giskard's positive-only attack set.
 - `GEMMA_1B_REPORT.md` and `GISKARD_REPORT.md`: recorded benchmark results.
 
 The current classifier is a research benchmark and a strong starting point for a service. It is not, by itself, a complete security boundary.
@@ -16,11 +16,9 @@ The current classifier is a research benchmark and a strong starting point for a
 Required:
 
 - macOS with Apple Silicon recommended; CPU also works but is slower.
-- Python 3.11 or newer compatible with the pinned environment.
+- A Python version compatible with your installed PyTorch, Transformers, and Datasets versions; this checkout has no pinned environment yet.
 - At least 8 GB available memory; 16 GB or more is recommended.
-- Local Gemma 3 1B IT weights at:
-
-  `/Users/Shabul/model-weights/Google/gemma-3-1b-it`
+- Local Gemma 3 1B IT weights or access to its Hugging Face model ID.
 
 - Access to the Gemma model under its Hugging Face license. Authenticate with Hugging Face and accept the model terms before downloading it.
 
@@ -31,26 +29,20 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-For a different machine, either change `MODEL` in the scripts or expose the model path through a small configuration change. Do not download weights on every request.
+Pass `--model /path/to/gemma-3-1b-it` to both evaluators, or omit it to use the model ID. Do not download weights on every request.
 
 ## Reproduce the benchmark
 
-Prepare the deterministic English dataset and disjoint splits:
+The prepared dataset is tracked. Rebuilding it with `prepare_gemma1b_dataset.py` can change tracked files and source revisions. Fit the classifier on the stored 150-row calibration split and evaluate the two same-source holdouts:
 
 ```bash
-.venv/bin/python prepare_gemma1b_dataset.py
-```
-
-This creates 150 calibration rows, 100 test rows, and 101 out-of-bag rows using seed 42. Fit the classifier on calibration and evaluate it:
-
-```bash
-.venv/bin/python evaluate_gemma1b.py
+.venv/bin/python evaluate_gemma1b.py --model /path/to/gemma-3-1b-it
 ```
 
 Evaluate the external Giskard attack set:
 
 ```bash
-.venv/bin/python evaluate_giskard.py
+.venv/bin/python evaluate_giskard.py --model /path/to/gemma-3-1b-it
 ```
 
 The Giskard file contains attacks only. It is valid for measuring attack recall, but not precision, accuracy, or F1. Those metrics require benign examples.
@@ -63,7 +55,7 @@ Run one long-lived model process per worker. Load the tokenizer, Gemma weights, 
 2. Apply cheap deterministic checks.
 3. Embed the text using the exact chat template used during calibration.
 4. Standardize the final hidden state with the saved calibration mean and scale.
-5. Apply the saved ridge weights and sigmoid to obtain `probability_injection`.
+5. Apply the saved ridge weights and sigmoid to obtain an uncalibrated `score`.
 6. Pass the score to a policy layer.
 7. Log the model version, score, action, latency, and input source.
 
@@ -78,7 +70,7 @@ score < 0.40       allow
 score >= 0.75       block or require explicit review
 ```
 
-These are starting points, not universal thresholds. The current experiment showed excellent attack recall around 0.6–0.7, but the Giskard set has no benign rows and therefore cannot establish the false-positive rate.
+These are illustrative bands, not validated operating thresholds. The historical 0.6 choice was made after viewing evaluation results; the Giskard set has no benign rows and therefore cannot establish the false-positive rate.
 
 ## Where to apply the detector
 
@@ -115,7 +107,7 @@ Return a versioned, explainable decision:
 ```json
 {
   "decision": "review",
-  "probability_injection": 0.68,
+  "score": 0.68,
   "threshold": 0.60,
   "model_version": "gemma-3-1b-it-ridge-v1",
   "source": "user",

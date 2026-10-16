@@ -1,55 +1,85 @@
-"""Evaluate a frozen Gemma 3 1B hidden-state ridge classifier."""
-import hashlib, json, math, time
+"""Reproduce the historical Gemma ridge benchmark and save its fitted head."""
+
+import argparse
+import importlib.metadata
+import json
+import platform
 from pathlib import Path
-import torch
-from datasets import load_from_disk
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL = '/Users/Shabul/model-weights/Google/gemma-3-1b-it'
-DATA = load_from_disk('data/gemma1b-prompt-injections')
-DEVICE = 'mps' if torch.backends.mps.is_available() else 'cpu'
-calibration, test, oob = DATA['calibration'], DATA['test'], DATA['oob']
-assert len(calibration) == 150 and len(test) == 100 and len(oob) == 101
-tokenizer = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True)
-model = AutoModelForCausalLM.from_pretrained(MODEL, dtype=torch.float32, trust_remote_code=True).to(DEVICE).eval()
+from gemma_benchmark import GemmaEncoder, binary_metrics, dataset_digest, fit_legacy_ridge, legacy_score, load_artifact, save_artifact
 
-def embed(text):
-    rendered = tokenizer.apply_chat_template([{'role': 'user', 'content': text}], tokenize=False, add_generation_prompt=True)
-    inputs = {k: v.to(DEVICE) for k, v in tokenizer(rendered, return_tensors='pt', truncation=True, max_length=2048).items()}
-    started = time.perf_counter()
-    with torch.inference_mode(): outputs = model(**inputs, output_hidden_states=True, use_cache=False)
-    if DEVICE == 'mps': torch.mps.synchronize()
-    return outputs.hidden_states[-1][0, -1].float().cpu(), (time.perf_counter() - started) * 1000
 
-def collect(dataset):
-    rows = []
-    for row in dataset:
-        vector, latency = embed(row['text'])
-        rows.append({'x': vector, 'label': int(row['label']), 'latency_ms': latency})
-    return rows
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", default="google/gemma-3-1b-it", help="Hugging Face model ID or local weights path")
+    parser.add_argument("--data", default="data/gemma1b-prompt-injections")
+    parser.add_argument("--artifact", default="gemma1b_legacy_head.json")
+    parser.add_argument("--output", default="gemma1b_results.json")
+    parser.add_argument("--device", choices=("cpu", "mps", "cuda"))
+    parser.add_argument("--trust-remote-code", action="store_true")
+    args = parser.parse_args()
 
-cal = collect(calibration); test_rows = collect(test); oob_rows = collect(oob)
-X = torch.stack([row['x'] for row in cal]); y = torch.tensor([row['label'] for row in cal], dtype=torch.float32)
-mean, scale = X.mean(0), X.std(0).clamp_min(1e-6); X = (X - mean) / scale
-X = torch.cat([X, torch.ones(len(X), 1)], dim=1)
-regularizer = torch.eye(X.shape[1]); regularizer[-1, -1] = 0
-weights = torch.linalg.solve(X.T @ X + regularizer, X.T @ y)
+    from datasets import load_from_disk
 
-def score(rows):
-    vectors = torch.stack([row['x'] for row in rows]); vectors = (vectors - mean) / scale
-    vectors = torch.cat([vectors, torch.ones(len(vectors), 1)], dim=1)
-    probabilities = torch.sigmoid(vectors @ weights).tolist()
-    return [dict(row, probability=probability) for row, probability in zip(rows, probabilities)]
-def metrics(rows, threshold):
-    assert all(math.isfinite(row['probability']) for row in rows)
-    tp = sum(row['label'] == 1 and row['probability'] >= threshold for row in rows)
-    fp = sum(row['label'] == 0 and row['probability'] >= threshold for row in rows)
-    fn = sum(row['label'] == 1 and row['probability'] < threshold for row in rows)
-    tn = sum(row['label'] == 0 and row['probability'] < threshold for row in rows)
-    precision = tp / (tp + fp) if tp + fp else 0; recall = tp / (tp + fn) if tp + fn else 0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0
-    return {'accuracy': (tp + tn) / len(rows), 'precision': precision, 'recall': recall, 'f1': f1, 'confusion_matrix': {'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn}, 'mean_latency_ms': sum(row['latency_ms'] for row in rows) / len(rows)}
+    data = load_from_disk(args.data)
+    required = ("calibration", "test", "oob")
+    if not all(split in data and len(data[split]) for split in required):
+        raise ValueError(f"dataset must contain nonempty {required} splits")
+    encoder = GemmaEncoder(args.model, args.device, args.trust_remote_code)
 
-test_rows, oob_rows = score(test_rows), score(oob_rows)
-summary = {'model': MODEL, 'method': 'frozen final hidden state + closed-form ridge head', 'device': DEVICE, 'dtype': 'float32', 'calibration_rows': 150, 'test_rows': 100, 'oob_rows': 101, 'thresholds': {str(t): {'test': metrics(test_rows, t), 'oob': metrics(oob_rows, t)} for t in (0.5, 0.6, 0.7, 0.8, 0.9)}, 'dataset_sha256': hashlib.sha256(''.join(row['text'] for split in (calibration, test, oob) for row in split).encode()).hexdigest()}
-Path('gemma1b_results.json').write_text(json.dumps({'summary': summary}, indent=2)); print(json.dumps(summary, indent=2))
+    def collect(split):
+        rows = []
+        for source in data[split]:
+            vector, timing = encoder.embed(source["text"])
+            rows.append({"vector": vector, "label": int(source["label"]), **timing})
+        return rows
+
+    training = collect("calibration")
+    head = fit_legacy_ridge([row["vector"] for row in training], [row["label"] for row in training])
+    data_hash = dataset_digest({split: data[split] for split in required})
+    artifact = save_artifact(args.artifact, encoder, head, data_hash)
+    loaded_head = load_artifact(args.artifact)["head"]
+    if abs(legacy_score(training[0]["vector"], head) - legacy_score(training[0]["vector"], loaded_head)) > 1e-7:
+        raise ValueError("saved head does not reproduce the fitted score")
+
+    scored_splits = {}
+    for split in ("test", "oob"):
+        rows = collect(split)
+        scored_splits[split] = [
+            {key: value for key, value in row.items() if key != "vector"} | {"score": legacy_score(row["vector"], head)}
+            for row in rows
+        ]
+    thresholds = {
+        str(value): {split: binary_metrics(rows, value) for split, rows in scored_splits.items()}
+        for value in (0.5, 0.6, 0.7, 0.8, 0.9)
+    }
+    summary = {
+        "model": args.model,
+        "method": "legacy frozen final hidden state + ridge + sigmoid score",
+        "score_semantics": artifact["score_semantics"],
+        "device": encoder.device,
+        "dtype": "float32",
+        "calibration_rows": len(training),
+        "test_rows": len(data["test"]),
+        "oob_rows": len(data["oob"]),
+        "split_provenance": "deepset same-source test and second holdout; exploratory",
+        "threshold_origin": "historical displayed thresholds; 0.6 was selected after evaluation",
+        "thresholds": thresholds,
+        "dataset_sha256": data_hash,
+        "artifact": args.artifact,
+        "model_fingerprints": encoder.fingerprints(),
+        "environment": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "torch": importlib.metadata.version("torch"),
+            "transformers": importlib.metadata.version("transformers"),
+            "datasets": importlib.metadata.version("datasets"),
+        },
+        "truncated_rows": {split: sum(row["truncated"] for row in rows) for split, rows in scored_splits.items()},
+    }
+    Path(args.output).write_text(json.dumps({"summary": summary}, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()

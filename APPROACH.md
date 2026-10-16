@@ -67,17 +67,17 @@ flowchart TB
         R6 --> R7[Application policy]
     end
 
-    TEST[Test and OOB prompts] -. evaluate only .-> R3
+    TEST[Test and second same-source holdout] -. evaluate only .-> R3
 ```
 
 The executable implementation is mapped here:
 
 - [Dataset preparation](prepare_gemma1b_dataset.py#L8-L28) downloads the deepset data, filters English rows, and creates the disjoint splits.
-- [Model and tokenizer loading](evaluate_gemma1b.py#L8-L14) loads the local Gemma 3 1B IT checkpoint and selects MPS or CPU.
-- [Prompt rendering and hidden-state extraction](evaluate_gemma1b.py#L16-L22) applies the chat template and returns the final hidden-state vector.
-- [Ridge-head fitting](evaluate_gemma1b.py#L31-L36) standardizes calibration vectors and solves the closed-form ridge system.
-- [Scoring](evaluate_gemma1b.py#L38-L42) applies the head and sigmoid to produce the injection score.
-- [Metrics and benchmark output](evaluate_gemma1b.py#L43-L55) calculates threshold metrics and writes the evaluation summary.
+- [Model and tokenizer loading](gemma_benchmark.py) loads the Gemma 3 1B IT checkpoint and selects the configured device.
+- [Prompt rendering and hidden-state extraction](gemma_benchmark.py) applies the chat template and returns the final hidden-state vector.
+- [Ridge-head fitting](gemma_benchmark.py) standardizes calibration vectors and solves the closed-form ridge system.
+- [Scoring](gemma_benchmark.py) applies the head and sigmoid to produce an uncalibrated score.
+- [Metrics and benchmark output](evaluate_gemma1b.py) calculates threshold metrics and writes the evaluation summary.
 - [Giskard evaluation](evaluate_giskard.py#L12-L42) reuses the same calibration procedure and measures positive-only attack recall and latency.
 
 ## 1. Starting with Gemma 3 1B IT
@@ -103,7 +103,7 @@ flowchart LR
     E --> F["threshold 0.60 → review/block"]
 ```
 
-In code, the corresponding operations are visible in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L32-L42): the vector is standardized, a bias feature is appended, the ridge weights are applied, and the sigmoid produces the score.
+In code, the corresponding operations are visible in [`gemma_benchmark.py`](gemma_benchmark.py): the vector is standardized, a bias feature is appended, the ridge weights are applied, and the sigmoid produces the score.
 
 This vector contains semantic features learned by Gemma, while the classifier trained in this experiment learns how those features correlate with prompt-injection labels.
 
@@ -113,15 +113,15 @@ The source dataset is `deepset/prompt-injections`. We filter for English rows us
 
 - 150 calibration examples: 84 safe and 66 injection;
 - 100 test examples: 56 safe and 44 injection;
-- 101 OOB examples: 57 safe and 44 injection.
+- 101 second same-source holdout examples (stored as `oob`): 57 safe and 44 injection.
 
-The [calibration split](data/gemma1b-prompt-injections/calibration/) is used only to fit the lightweight judgment head and its normalization statistics. The [test split](data/gemma1b-prompt-injections/test/) and [OOB split](data/gemma1b-prompt-injections/oob/) are not used during fitting.
+The [calibration split](data/gemma1b-prompt-injections/calibration/) is used only to fit the lightweight judgment head and its normalization statistics. The [test split](data/gemma1b-prompt-injections/test/) and [second holdout](data/gemma1b-prompt-injections/oob/) are not used during fitting. Both evaluation splits come from deepset; the historical 0.6 threshold was selected after viewing them.
 
 For the calibration vectors, we compute a per-dimension mean and standard deviation. Each hidden-state vector is standardized using those saved values. This prevents large-scale dimensions from dominating the linear head.
 
 ## 3. The learned judgment head
 
-After normalization, we append a bias feature and fit a ridge-regression head against the binary labels. The implementation is in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L31-L42). In simplified form:
+After normalization, we append a bias feature and fit a ridge-regression head against the binary labels. The implementation is in [`gemma_benchmark.py`](gemma_benchmark.py). In simplified form:
 
 ```text
 z(x) = w · normalize(h(x)) + b
@@ -130,7 +130,7 @@ score(x) = sigmoid(z(x))
 
 The ridge solution is computed in closed form. It is a small supervised model trained on top of Gemma's representations; Gemma itself remains frozen.
 
-The resulting `score(x)` is called `probability_injection` in the evaluation output. It is a model score used for ranking and thresholding. It should not be interpreted as a perfectly calibrated real-world probability until calibration has been checked on a representative validation set. The production integration guidance is in [`SHIPMENT_GUIDE.md`](SHIPMENT_GUIDE.md).
+The resulting `score(x)` is recorded as `score` in the updated evaluation output. It is uncalibrated because ridge predictions are not logits. The production integration guidance is in [`SHIPMENT_GUIDE.md`](SHIPMENT_GUIDE.md).
 
 ## 4. Programmable judgment layer
 
@@ -161,7 +161,7 @@ flowchart LR
     G[Tool sandboxing] --> D
 ```
 
-The separation between representation and judgment is implemented by the ridge head shown in [`evaluate_gemma1b.py`](evaluate_gemma1b.py#L31-L42).
+The separation between representation and judgment is implemented by the ridge head in [`gemma_benchmark.py`](gemma_benchmark.py).
 
 ## 5. From score to application output
 

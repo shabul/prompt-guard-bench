@@ -1,4 +1,6 @@
 .venv/
+.venv-setfit/
+artifacts/
 __pycache__/
 *.pyc
 .DS_Store

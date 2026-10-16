@@ -1,0 +1,7 @@
+# Recipe SetFit extension (exploratory, fixed before this run)
+
+Date: 2026-10-16. The recipe test results have already been viewed. This is a post-test exploratory extension, not a confirmatory comparison.
+
+Use the exact `recipe-sentiment-v1` source SHA-256, seed-42 recipe-group split, deduplication rule, and 128 fit / 200 validation / 320 test examples from [the original recipe protocol](recipe_pilot_protocol.md). Fit on the same 64 unfavorable and 64 favorable training reviews. Keep the same pinned `sentence-transformers/all-MiniLM-L6-v2` revision `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` as the SMS SetFit run. Use SetFit 1.2.0 with its default loss and classification head and `TrainingArguments(batch_size=16, num_epochs=1, num_iterations=20, max_steps=80, seed=42, show_progress_bar=False, save_strategy="no")`. No validation examples enter model fitting. Choose the class-1 score threshold by validation positive-F1 maximization, with the higher threshold winning ties.
+
+Before viewing this run's result, report test confusion counts, favorable F1, macro F1, balanced accuracy, unfavorable FPR, average precision, encoder/head training time, and warm one-message request time. Save the model and verify one-row reload parity. Keep this result separate from the original five-method protocol; do not retrofit its result into a pre-test claim. Later work still needs repeated splits and an untouched test.

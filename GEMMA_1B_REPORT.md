@@ -2,13 +2,15 @@
 
 This branch contains only the Gemma 3 1B experiment. The model is frozen; a closed-form ridge head is trained on final hidden states from 150 labeled calibration examples.
 
+These are historical, exploratory results. A 2026-10-16 local rerun with Python 3.12.1, PyTorch 2.14.1, Transformers 5.20.0, Datasets 5.1.0, and Apple M5 MPS reproduced all displayed threshold confusion counts. The sigmoid of a ridge output is an uncalibrated score. Threshold 0.6 was selected after viewing the evaluation splits, so the numbers below are not confirmatory estimates at a preselected operating point.
+
 ## Data
 
 - Source: `deepset/prompt-injections`
 - English-dominant rows: 351
 - Calibration: 150 (84 safe / 66 injection)
 - Test: 100 (56 safe / 44 injection)
-- OOB: 101 (57 safe / 44 injection)
+- Second same-source holdout (named `oob` in stored data): 101 (57 safe / 44 injection)
 - All splits are stratified and disjoint.
 
 ## Results
@@ -21,8 +23,8 @@ This branch contains only the Gemma 3 1B experiment. The model is frozen; a clos
 | 0.8 | no positives | 56.00% | 0.00% | no positives | 56.44% | 0.00% |
 | 0.9 | no positives | 56.00% | 0.00% | no positives | 56.44% | 0.00% |
 
-## Recommended operating point
+## Historical operating point
 
-Threshold **0.6** is the best balanced choice: 93.33% test precision, 95.00% test accuracy, and 95.45% test recall. OOB performance remains strong at 87.50% precision, 92.08% accuracy, and 95.45% recall.
+Threshold **0.6** was selected after inspecting these results. At that threshold, the test split showed 93.33% precision, 95.00% accuracy, and 95.45% recall; the second holdout showed 87.50% precision, 92.08% accuracy, and 95.45% recall. Both evaluation splits came from deepset, so neither establishes external distribution transfer.
 
-Mean hidden-state extraction latency was 85.2 ms on test and 71.2 ms on OOB on Apple M5 MPS.
+Reported mean model-forward latency was 85.2 ms on test and 71.2 ms on the second holdout on Apple M5 MPS. Tokenization and full request time were not included in those historical figures.
